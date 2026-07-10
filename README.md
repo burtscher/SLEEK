@@ -75,6 +75,8 @@ The codes can be found in 4 different folders, separated by lossless and lossy C
 - [Lossless CPU Codes](./lossless_compressors_cpu)
 - [Lossy CPU Codes](./lossy_compressors_cpu)
 
+These codes use our SLEEK API, which can be found in the [include folder](./include). The API provides an easier means of integrating SLEEK into other CPU and GPU codes. For examples of how to use the SLEEK API, please refer to the aforementioned GPU and CPU code folders.
+
 The `compile_compressors_single.sh` and `compile_compressors_double.sh` Bash scripts compile all CPU and GPU codes for single- and double-precision inputs, respectively. These scripts automatically use the appropriate `-arch` flag for the installed GPU.
 
 To compile SLEEK for use with single-precision inputs, use the following command while in the top-level directory of this repository.
