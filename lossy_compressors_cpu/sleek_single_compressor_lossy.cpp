@@ -39,34 +39,8 @@ Sponsor: This material is based upon work supported by the U.S. National Science
 */
 
 
-#define NDEBUG
-
-using byte = unsigned char;
-using type_u = unsigned int;
-using type_f = float;
-
-#define clz(val) \
-    (sizeof(type_u) == sizeof(unsigned int) ? __builtin_clz(static_cast<unsigned int>(val)) : \
-     __builtin_clzll(static_cast<unsigned long long>(val)))
-
-#define to_float(val) \
-    (sizeof(type_f) == sizeof(float) ? std::stof(val) : std::stod(val))
-
-#include <cassert>
-#include <cstring>
-#include <cstdio>
-#include <algorithm>
+#include "sleek_lossy_cpu.h"
 #include <sys/time.h>
-#include <climits>
-#include <stdexcept>
-#include <cmath>
-#include <string>
-
-const type_u mantissabits = 23;
-const type_u remove_sign_bit_mask = 0x7fff'ffff;
-static const int bytes_in_type = 4;
-const int rShift = (sizeof(type_u) * 8 - 1);
-static const int CS = 1024 * 16;  // chunk size (in bytes) [must be multiple of 8]
 
 
 struct CPUTimer
@@ -79,171 +53,15 @@ struct CPUTimer
 };
 
 
-static inline type_u quantize(const type_u val, const int eb_e, const int thr_e, const int offs)
-{
-  const int e = 8;  // exponent bits
-  const int m = 23;  // mantissa bits
-  const int abs = val & (((unsigned int)1 << (e + m)) - 1);  // compute absolute value
-  const int val_e = abs >> m;  // extract exponent
-  int enc = 0;  // default value is 0
-  if (val_e >= thr_e) {  // at or above threshold
-    enc = abs - offs;  // lossless encoding
-  } else if (val_e >= eb_e) {  // lossy encoding
-    int mant = val & ((1 << m) - 1);  // extract mantissa
-    const int shift = thr_e - val_e;  // bias cancels out
-    mant |= 1 << m;  // insert implicit 1
-    mant += 1 << (shift - 1);  // round to nearest, ties round away from zero
-    enc = mant >> shift;  // shift out unnecessary bits
-  }
-  enc = (enc << 1) | (~val >> (e + m));  // magnitude ~sign
-  if (enc != 0) enc--;  // -0 -> +0 and fill gap
-  return enc;
-}
-
-
-static void h_encode(byte* input, const long long insize, byte* const __restrict__ output, long long& outsize, const int eb_e, const int thr_e, const int offs)
-{
-  // initialize
-  const long long chunks = (insize + CS - 1) / CS;  // round up
-  long long* const head_out = (long long*)output;
-  unsigned short* const size_out = (unsigned short*)&head_out[1];
-  byte* const data_out = (byte*)&size_out[chunks];
-  long long* const carry = new long long [chunks];
-  memset(carry, 0, chunks * sizeof(long long));
-
-  // encode chunk
-  const int TB = sizeof(type_u) * 8;  // number of bits in type_u
-  const int size = CS / sizeof(type_u);
-  const int SC = 32;  // subchunks [do not change]
-  const int chunksize = size / SC;  // size of subchunk in words
-
-  static_assert(sizeof(type_u) == bytes_in_type);
-  static_assert(SC == sizeof(int) * 8);
-  static_assert(std::is_unsigned<type_u>::value);
-
-  // process chunks in parallel
-#pragma omp parallel for schedule(dynamic, 1) default(none) shared(chunks, insize, input, offs, thr_e, eb_e, carry, size_out, data_out)
-  for (long long chunkID = 0; chunkID < chunks; chunkID++) {
-    // load chunk
-    type_u tmp_buffer_t [CS / sizeof(type_u)]; 
-    byte out [CS / sizeof(byte)];
-    const long long base = chunkID * CS;
-    const int osize = (int)std::min((long long)CS, insize - base);
-    byte* const in = &input[base];
-
-    // clear unused part of input buffer
-    if (osize < CS) {
-      memset(in + osize, 0, CS - osize);
-    }
-
-    type_u* const in_t = (type_u*)in;
-
-    // determine bits needed for each subchunk
-    int bits = 0;
-    for (int i = 0; i < SC; i++) {
-      const int beg = i * chunksize;
-      const int end = beg + chunksize;
-      type_u max_val = 0;
-      for (int j = beg; j < end; j++) {
-        const type_u val = quantize(in_t[j], eb_e, thr_e, offs);
-        tmp_buffer_t[j] = val;
-        max_val = std::max(max_val, val);
-      }
-
-      int cnt = TB;
-      if (max_val != 0) {
-        cnt = clz(max_val);
-      }
-      const int ln = TB - cnt;  // logn value for subchunk
-      bits += ln * chunksize;
-      out[i] = ln;
-    }
-
-    const int newsize = (SC * 8 + bits + 16) / 8;
-
-    // handle carry
-    long long offs = 0LL;
-    if (chunkID > 0) {
-      do {
-#pragma omp atomic read
-        offs = carry[chunkID - 1];
-      } while (offs == 0);
-#pragma omp flush
-    }
-
-    // check if encoded data fits
-    if (newsize < osize) {
-      // store carry of compressed data
-#pragma omp atomic write
-      carry[chunkID] = (offs + (long long)newsize);
-      size_out[chunkID] = newsize;
-
-      // clear out buffer
-      type_u* const out_t = (type_u*)&out[SC];
-      memset(out_t, 0, bits / 8);
-
-      // encode data values
-      int startPos = 0;
-      for (int i = 0; i < SC; i++) {
-        const int logn = out[i];
-        if (logn > 0) {
-          const int beg = i * chunksize;
-          const int end = beg + chunksize;
-          if (logn == TB) {
-            const int offs = startPos / TB - beg;
-            for (int j = beg; j < end; j++) {
-              out_t[offs + j] = tmp_buffer_t[j];
-            }
-          } else {
-            int loc = startPos;
-            for (int j = beg; j < end; j++) {
-              const type_u val = tmp_buffer_t[j];
-              const int pos = loc / TB;
-              const int shift = loc % TB;
-              out_t[pos] |= val << shift;
-              if (TB - shift < logn) {
-                out_t[pos + 1] = val >> (TB - shift);
-              }
-              loc += logn;
-            }
-          }
-        }
-        startPos += chunksize * logn;
-      }
-
-      // output header info
-      *(short*)&out[newsize - 2] = osize;
-
-      memcpy(&data_out[offs], out, newsize);
-    } else {
-      // store original data
-#pragma omp atomic write
-      carry[chunkID] = (offs + (long long)osize);
-      size_out[chunkID] = osize;
-      memcpy(&data_out[offs], &input[base], osize);
-    }
-  }
-
-  // output header
-  head_out[0] = insize;
-
-  // finish
-  outsize = &data_out[carry[chunks - 1]] - output;
-  delete [] carry;
-}
-
-
 #if defined(ARTIFACT)
-  static inline type_f computeNOAeb(const type_f* const input, const long long size, const type_f eb_param)
+  static inline float computeNOAeb(const float* const input, const long long size, const float eb_param)
   {
-    type_f min = input[0], max = input[0];
+    float min = input[0], max = input[0];
     #pragma omp parallel for default(none) shared(size, input) reduction(max: max) reduction(min: min)
     for (long long i = 1; i < size; i++) {
-      const type_f val = input[i];
-      if (val < min)
-        min = val;
-      else if (val > max)
-        max = val;
+      const float val = input[i];
+      min = std::min(val, min);
+      max = std::max(val, max);
     }
 
     printf("min_val: %.10f\n", min);
@@ -259,80 +77,69 @@ int main(int argc, char* argv [])
   printf("CPU SLEEK 1.0: single-precision lossy compressor\n");
   printf("Copyright 2026 Texas State University\n\n");
 
-  // read input from file
-  if (argc < 4) {printf("USAGE: %s input_file_name compressed_file_name error_bound\n\n", argv[0]); return -1;}
+  if (argc != 4) {printf("USAGE: %s input_file_name compressed_file_name error_bound\n\n", argv[0]); return -1;}
+
+  // system check
+  if (sleek_system_checks() != 0) {return -1;}
+
+  // read input file
   FILE* const fin = fopen(argv[1], "rb");
   fseek(fin, 0, SEEK_END);
   const long long fsize = ftell(fin);
   if (fsize <= 0) {fprintf(stderr, "ERROR: input file too small\n\n"); return -1;}
-  byte* const input = new byte [(fsize + CS - 1) / CS * CS];
+  const long long num_elements = fsize / sizeof(float);
+  float* const input = new float [num_elements];
   fseek(fin, 0, SEEK_SET);
+  // all "*size" variables in bytes
   const long long insize = fread(input, 1, fsize, fin);  assert(insize == fsize);
   fclose(fin);
   printf("original size: %lld bytes\n", insize);
 
-  #if defined(ARTIFACT)
-    const type_f parameter = to_float(argv[3]);
-    type_f* t_input = (type_f*)input;
-    const type_f eb = computeNOAeb(t_input, insize / sizeof(type_f), parameter);
-  #else
-    const type_f eb = to_float(argv[3]);
-  #endif
-
-  // eb variables
-  const int e = 8;  // exponent bits
-  const int m = 23;  // mantissa bits
-  const int eb_e = (*((int*)&eb) >> m) & ((1 << e) - 1);  // extract biased exponent
-  const int thr_e = eb_e + (m + 1);  // biased exponent of threshold
-  const int offs = (thr_e << m) - (1 << m);  // offset for lossless encoding
-  if (thr_e >= (1 << e) - 1) {fprintf(stderr, "QUANT_IABS_0_f32: ERROR: error_bound is too large\n"); return -1;}
-
-  if (insize % sizeof(type_f) != 0) {fprintf(stderr, "ERROR: size of input must be a multiple of %ld bytes\n", sizeof(type_f)); return -1;}
-
-  #if defined(ARTIFACT)
-    // Check if the third argument is "y" to enable performance analysis
-    char* perf_str = argv[4];
-    bool perf = false;
-    if (perf_str != nullptr && strcmp(perf_str, "y") == 0) {
-      perf = true;
-    } else if (perf_str != nullptr && strcmp(perf_str, "y") != 0) {
-      fprintf(stderr, "ERROR: Invalid argument. Use 'y' or nothing.\n");
-      return -1;
-    }
-  #endif
+  if (insize % sizeof(float) != 0) {fprintf(stderr, "ERROR: size of input must be a multiple of %ld bytes\n", sizeof(float)); return -1;}
 
   // allocate CPU memory
-  const long long chunks = (insize + CS - 1) / CS;  // round up
-  const long long maxsize = 3 * sizeof(int) + chunks * sizeof(short) + chunks * CS;
+  const long long maxsize = sleek_upper_bound_size(insize);
   byte* const hencoded = new byte [maxsize];
   long long hencsize = 0;
 
   #if defined(ARTIFACT)
-    // time CPU preprocessor encoding
-    if (perf) {
-      // warm up
-      byte* dummy = new byte [(insize + CS - 1) / CS * CS];
-      std::copy(input, input + insize, dummy);
-      h_encode(dummy, insize, hencoded, hencsize, eb_e, thr_e, offs);
-      delete [] dummy;
-    }
-  #endif
 
-  CPUTimer htimer;
-  htimer.start();
-  h_encode(input, insize, hencoded, hencsize, eb_e, thr_e, offs);
-  double hruntime = htimer.stop();
+    // eb variables
+    const float parameter = std::stof(argv[3]);
+    const float eb = computeNOAeb(input, num_elements, parameter);
+    const auto eb_info = sleek_error_bound(eb);
 
-  printf("encoded size: %lld bytes\n", hencsize);
-  const type_f CR = (100.0 * hencsize) / insize;
-  printf("ratio: %6.2f%% %7.3fx\n", CR, 100.0 / CR);
+    // warm up
+    float* dummy = new float [num_elements];
+    std::copy(input, input + num_elements, dummy);
+    sleek_compress_cpu(eb_info, dummy, num_elements, hencoded, hencsize);
+    delete [] dummy;
 
-  #if defined(ARTIFACT)
-    if (perf) {
-      printf("encoding time: %.6f s\n", hruntime);
-      double hthroughput = insize * 0.000000001 / hruntime;
-      printf("encoding throughput: %8.3f Gbytes/s\n", hthroughput);
-    }
+    CPUTimer htimer;
+    htimer.start();
+    sleek_compress_cpu(eb_info, input, num_elements, hencoded, hencsize);
+    double hruntime = htimer.stop();
+
+    printf("encoded size: %lld bytes\n", hencsize);
+    const float CR = (100.0 * hencsize) / insize;
+    printf("ratio: %6.2f%% %7.3fx\n", CR, 100.0 / CR);
+
+    printf("encoding time: %.6f s\n", hruntime);
+    double hthroughput = insize * 0.000000001 / hruntime;
+    printf("encoding throughput: %8.3f Gbytes/s\n", hthroughput);
+
+  #else
+
+    // eb variables
+    const float eb = std::stof(argv[3]);
+    const auto eb_info = sleek_error_bound(eb);
+
+    sleek_compress_cpu(eb_info, input, num_elements, hencoded, hencsize);
+
+    printf("encoded size: %lld bytes\n", hencsize);
+    const float CR = (100.0 * hencsize) / insize;
+    printf("ratio: %6.2f%% %7.3fx\n", CR, 100.0 / CR);
+
   #endif
 
   // write to file

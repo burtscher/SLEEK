@@ -1,4 +1,4 @@
-#!/usr/bin/python33 -u
+#!/usr/bin/python3 -u
 
 # This file is part of SLEEK, a set of ultra-fast lossless and guaranteed-error-bounded lossy main-memory compression algorithms for floating-point data on GPUs.
 #
@@ -59,28 +59,28 @@ SLEEK_D_LOSSY_CPU = "./sleek_double_decompressor_lossy_cpu"
 
 def run_lossless_with_input(filepath):
 	try:
-		result = subprocess.run([SLEEK_C_LOSSLESS, filepath, "TEMPC", "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_C_LOSSLESS, filepath, "TEMPC"], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_C_LOSSLESS} for {filepath}: {e}")
 		quit()
 
 	try:
-		result = subprocess.run([SLEEK_D_LOSSLESS, "TEMPC", "TEMPD", "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_D_LOSSLESS, "TEMPC", "TEMPD"], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_D_LOSSLESS} for {filepath}: {e}")
 		quit()
 
 	try:
-		result = subprocess.run([SLEEK_C_LOSSLESS_CPU, filepath, "TEMPC_cpu", "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_C_LOSSLESS_CPU, filepath, "TEMPC_cpu"], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_C_LOSSLESS_CPU} for {filepath}: {e}")
 		quit()
 
 	try:
-		result = subprocess.run([SLEEK_D_LOSSLESS_CPU, "TEMPC_cpu", "TEMPD_cpu", "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_D_LOSSLESS_CPU, "TEMPC_cpu", "TEMPD_cpu"], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_D_LOSSLESS_CPU} for {filepath}: {e}")
@@ -106,28 +106,28 @@ def run_lossless_with_input(filepath):
 
 def run_lossy_with_input(filepath, errbnd):
 	try:
-		result = subprocess.run([SLEEK_C_LOSSY, filepath, "TEMPC", errbnd, "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_C_LOSSY, filepath, "TEMPC", errbnd], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_C_LOSSY} for {filepath}: {e}")
 		quit()
 
 	try:
-		result = subprocess.run([SLEEK_D_LOSSY, "TEMPC", "TEMPD", filepath, errbnd, "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_D_LOSSY, "TEMPC", "TEMPD", errbnd, filepath], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_D_LOSSY} for {filepath}: {e}")
 		quit()
 
 	try:
-		result = subprocess.run([SLEEK_C_LOSSY_CPU, filepath, "TEMPC_cpu", errbnd, "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_C_LOSSY_CPU, filepath, "TEMPC_cpu", errbnd], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_C_LOSSY_CPU} for {filepath}: {e}")
 		quit()
 
 	try:
-		result = subprocess.run([SLEEK_D_LOSSY_CPU, "TEMPC_cpu", "TEMPD_cpu", filepath, errbnd, "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_D_LOSSY_CPU, "TEMPC_cpu", "TEMPD_cpu", errbnd, filepath], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_D_LOSSY_CPU} for {filepath}: {e}")

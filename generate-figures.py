@@ -1,4 +1,4 @@
-#!/usr/bin/env python33
+#!/usr/bin/python3 -u
 
 # This file is part of SLEEK, a set of ultra-fast lossless and guaranteed-error-bounded lossy main-memory compression algorithms for floating-point data on GPUs.
 #

@@ -46,16 +46,16 @@ GPUNAME="$(./grabname)"
 echo "Compiling double-precision lossy and lossless compressors..."
 echo "Using GPU: $GPUNAME"
 
-nvcc -O3 -arch=$GPUARCH ./lossless_compressors_gpu/sleek_double_compressor.cu -o sleek_double_compressor_lossless
-nvcc -O3 -arch=$GPUARCH ./lossless_compressors_gpu/sleek_double_decompressor.cu -o sleek_double_decompressor_lossless
+nvcc -O3 -arch=$GPUARCH -I./include ./lossless_compressors_gpu/sleek_double_compressor.cu -o sleek_double_compressor_lossless
+nvcc -O3 -arch=$GPUARCH -I./include ./lossless_compressors_gpu/sleek_double_decompressor.cu -o sleek_double_decompressor_lossless
 
-nvcc -O3 -arch=$GPUARCH ./lossy_compressors_gpu/sleek_double_compressor_lossy.cu -o sleek_double_compressor_lossy
-nvcc -O3 -arch=$GPUARCH ./lossy_compressors_gpu/sleek_double_decompressor_lossy.cu -o sleek_double_decompressor_lossy
+nvcc -O3 -arch=$GPUARCH -I./include ./lossy_compressors_gpu/sleek_double_compressor_lossy.cu -o sleek_double_compressor_lossy
+nvcc -O3 -arch=$GPUARCH -I./include ./lossy_compressors_gpu/sleek_double_decompressor_lossy.cu -o sleek_double_decompressor_lossy
 
 nvcc -O3 -arch=$GPUARCH ./memcpy.cu -o GPUmemcpy
 
-g++ -O3 -fopenmp -march=native -std=c++17 ./lossless_compressors_cpu/sleek_double_compressor.cpp -o sleek_double_compressor_lossless_cpu
-g++ -O3 -fopenmp -march=native -std=c++17 ./lossless_compressors_cpu/sleek_double_decompressor.cpp -o sleek_double_decompressor_lossless_cpu
+g++ -O3 -fopenmp -march=native -std=c++17 -I./include ./lossless_compressors_cpu/sleek_double_compressor.cpp -o sleek_double_compressor_lossless_cpu
+g++ -O3 -fopenmp -march=native -std=c++17 -I./include ./lossless_compressors_cpu/sleek_double_decompressor.cpp -o sleek_double_decompressor_lossless_cpu
 
-g++ -O3 -fopenmp -march=native -std=c++17 ./lossy_compressors_cpu/sleek_double_compressor_lossy.cpp -o sleek_double_compressor_lossy_cpu
-g++ -O3 -fopenmp -march=native -std=c++17 ./lossy_compressors_cpu/sleek_double_decompressor_lossy.cpp -o sleek_double_decompressor_lossy_cpu
+g++ -O3 -fopenmp -march=native -std=c++17 -I./include ./lossy_compressors_cpu/sleek_double_compressor_lossy.cpp -o sleek_double_compressor_lossy_cpu
+g++ -O3 -fopenmp -march=native -std=c++17 -I./include ./lossy_compressors_cpu/sleek_double_decompressor_lossy.cpp -o sleek_double_decompressor_lossy_cpu

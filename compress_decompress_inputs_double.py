@@ -1,4 +1,4 @@
-#!/usr/bin/python33 -u
+#!/usr/bin/python3 -u
 
 # This file is part of SLEEK, a set of ultra-fast lossless and guaranteed-error-bounded lossy main-memory compression algorithms for floating-point data on GPUs.
 #
@@ -56,7 +56,7 @@ GPU_MEMCPY = "./GPUmemcpy"
 
 def run_lossless_with_input(filepath):
 	try:
-		result = subprocess.run([SLEEK_C_LOSSLESS, filepath, "TEMPC", "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_C_LOSSLESS, filepath, "TEMPC"], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_C_LOSSLESS} for {filepath}: {e}")
@@ -65,7 +65,7 @@ def run_lossless_with_input(filepath):
 	compressor_output = output
 
 	try:
-		result = subprocess.run([SLEEK_D_LOSSLESS, "TEMPC", "TEMPD", "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_D_LOSSLESS, "TEMPC", "TEMPD"], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_D_LOSSLESS} for {filepath}: {e}")
@@ -77,7 +77,7 @@ def run_lossless_with_input(filepath):
 
 def run_lossy_with_input(filepath, errbnd):
 	try:
-		result = subprocess.run([SLEEK_C_LOSSY, filepath, "TEMPC", errbnd, "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_C_LOSSY, filepath, "TEMPC", errbnd], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_C_LOSSY} for {filepath}: {e}")
@@ -86,7 +86,7 @@ def run_lossy_with_input(filepath, errbnd):
 	compressor_output = output
 
 	try:
-		result = subprocess.run([SLEEK_D_LOSSY, "TEMPC", "TEMPD", filepath, errbnd, "y"], capture_output=True, text=True, check=True)
+		result = subprocess.run([SLEEK_D_LOSSY, "TEMPC", "TEMPD", errbnd, filepath], capture_output=True, text=True, check=True)
 		output = result.stdout
 	except subprocess.CalledProcessError as e:
 		print(f"ERROR running {SLEEK_D_LOSSY} for {filepath}: {e}")

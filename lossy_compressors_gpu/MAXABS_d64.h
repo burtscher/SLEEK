@@ -43,8 +43,8 @@ static void MAXABS_d64(const long long size, const byte* const __restrict__ reco
   using type_i = long long int;
   assert(sizeof(type_f) == sizeof(type_i));
 
-  if ((size % sizeof(type_f)) != 0) {fprintf(stderr, "ERROR: MAXABS_d64 requires data to be a multiple of %ld bytes long\n", sizeof(type_f)); throw std::runtime_error("LC error");}
-  if (errorbound <= 0) {fprintf(stderr, "ERROR: MAXABS_d64 requires the maximum allowed absolute error to be greater than zero\n"); throw std::runtime_error("LC error");}
+  if ((size % sizeof(type_f)) != 0) {fprintf(stderr, "ERROR: MAXABS_d64 requires data to be a multiple of %ld bytes long\n", sizeof(type_f)); exit(-1);}
+  if (errorbound <= 0) {fprintf(stderr, "ERROR: MAXABS_d64 requires the maximum allowed absolute error to be greater than zero\n"); exit(-1);}
 
   const type_f* const orig_f = (type_f*)orig;
   const type_f* const recon_f = (type_f*)recon;
