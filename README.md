@@ -1,7 +1,7 @@
 
 # SLEEK: Compressing Memcpy for Floating-Point Data on GPUs
 
-This repository provides our GPU and CPU implementation of SLEEK, a new main-memory compression algorithm for IEEE 754-formatted single- and double-precision floating-point data that delivers speeds comparable to or exceeding the speed of CUDA _memcpy_ on GPUs. Also included are the relevant scripts to download the SDRBench inputs, compile and run our code, gather results, and generate figures similar to those shown in our IPDPS'26 paper. Our paper can be found at: https://userweb.cs.txstate.edu/~burtscher/papers/ipdps26.pdf.
+This repository provides our GPU and CPU implementation of SLEEK, a new main-memory compression algorithm for IEEE 754-formatted single- and double-precision floating-point data that delivers speeds comparable to or exceeding the speed of CUDA _memcpy_ on GPUs. Also included are the relevant scripts to download the SDRBench inputs, compile and run our code, gather results, and generate figures similar to those shown in our IPDPS'26 paper. For more information on SLEEK, see the paper listed in the [Publication](#Publication) section below.
 
 SLEEK provides lossless and lossy algorithms that yield substantial compression ratios at high speeds. They support all floating-point values, including NaNs, infinities, and denormals. The lossy compression algorithm guarantees point-wise absolute error bounds without the need to check for violations. The GPU and CPU implementations of SLEEK produce compressed and decompressed outputs that are bit-for-bit identical, allowing data compressed on a GPU to be decompressed on a CPU and vice versa. SLEEK delivers much higher throughput at a given compression ratio compared to the state-of-the-art algorithms from the literature.
 
@@ -128,3 +128,11 @@ bash full-workflow.sh
 ```
 
 The generated figures will be stored in the directory named `figures`.
+
+## Publication
+
+If you use SLEEK in your work, please cite the following publication:
+
+Anju Mongandampulath Akathoott, Andrew Rodriguez, and Martin Burtscher. "SLEEK: Compressing Memory Copies for Floating-Point Data on GPUs." Proceedings of the 40th IEEE International Parallel and Distributed Processing Symposium. May 2026. [[paper](https://userweb.cs.txstate.edu/~burtscher/papers/ipdps26.pdf)] [[slides](https://userweb.cs.txstate.edu/~burtscher/slides/ipdps26.pptx)] [[doi](https://doi.org/10.1109/IPDPS65963.2026.00022)]
+
+*This material is based upon work supported by the National Science Foundation under Grant #2403380 and by the Department of Energy, Office of Science, Office of Advanced Scientific Research (ASCR), under Award #DE-SC0022223.*
